@@ -28,7 +28,13 @@ class TQAgent:
         # 'gameboard.N_col' number of columns in gameboard
         # 'len(gameboard.tiles)' number of different tiles
         # 'self.episode_count' the total number of episodes in the training
+        n =  (self.gameboard.N_col * self.gameboard.N_row ) # n!/(2!(n-2)!) = n(n-1)/2
+        nr_states = int(n*(n-1) /2) + len(self.gameboard.tiles)
+        nr_actions = 12 # (nr_cols-1) * 4
 
+        self.state = np.zeros((self.gameboard.N_row * self.gameboard.N_col * len(self.gameboard.tiles)))
+        self.q_table = np.zeros((nr_states, nr_actions))
+        
     def fn_load_strategy(self,strategy_file):
         pass
         # TO BE COMPLETED BY STUDENT
