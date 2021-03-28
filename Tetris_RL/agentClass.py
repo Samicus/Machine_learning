@@ -2,7 +2,7 @@ import numpy as np
 import random
 import math
 import h5py
-
+from functools import reduce
 # This file provides the skeleton structure for the classes TQAgent and TDQNAgent to be completed by you, the student.
 # Locations starting with # TO BE COMPLETED BY STUDENT indicates missing code that should be written by you.
 
@@ -29,10 +29,10 @@ class TQAgent:
         # 'len(gameboard.tiles)' number of different tiles
         # 'self.episode_count' the total number of episodes in the training
         n =  (self.gameboard.N_col * self.gameboard.N_row ) # n!/(2!(n-2)!) = n(n-1)/2
-        nr_states = int(n*(n-1) /2) + len(self.gameboard.tiles)
+        nr_states = int(n*(n-1) /2) * len(self.gameboard.tiles)
         nr_actions = 12 # (nr_cols-1) * 4
 
-        self.state = np.zeros((self.gameboard.N_row * self.gameboard.N_col * len(self.gameboard.tiles)))
+        self.state = np.zeros((self.gameboard.N_row * self.gameboard.N_col + len(self.gameboard.tiles)))
         self.q_table = np.zeros((nr_states, nr_actions))
         
     def fn_load_strategy(self,strategy_file):
@@ -41,7 +41,11 @@ class TQAgent:
         # Here you can load the Q-table (to Q-table of self) from the input parameter strategy_file (used to test how the agent plays)
 
     def fn_read_state(self):
-        pass
+        current_tile = self.gameboard.cur_tile_type # int 0 - 3
+        self.state[:4] = [-1, -1, -1, -1]
+        self.state[current_tile] = 1
+        self.state[4:] = self.gameboard.board.flatten()
+
         # TO BE COMPLETED BY STUDENT
         # This function should be written by you
         # Instructions:
