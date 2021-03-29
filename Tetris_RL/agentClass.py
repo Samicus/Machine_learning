@@ -3,8 +3,7 @@ import random
 import math
 import h5py
 from functools import reduce
-# This file provides the skeleton structure for the classes TQAgent and TDQNAgent to be completed by you, the student.
-# Locations starting with # TO BE COMPLETED BY STUDENT indicates missing code that should be written by you.
+import random
 
 class TQAgent:
     # Agent for learning to play tetris using Q-learning
@@ -14,69 +13,81 @@ class TQAgent:
         self.epsilon=epsilon
         self.episode=0
         self.episode_count=episode_count
+        self.dict = {}
+        self.new_state_index = 0
+        self.strat = 0  # Argmax action
 
     def fn_init(self,gameboard):
         self.gameboard=gameboard
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # In this function you could set up and initialize the states, actions and Q-table and storage for the rewards
-        # This function should not return a value, store Q table etc as attributes of self
 
-        # Useful variables: 
-        # 'gameboard.N_row' number of rows in gameboard
-        # 'gameboard.N_col' number of columns in gameboard
-        # 'len(gameboard.tiles)' number of different tiles
-        # 'self.episode_count' the total number of episodes in the training
-        n =  (self.gameboard.N_col * self.gameboard.N_row ) # n!/(2!(n-2)!) = n(n-1)/2
-        nr_states = int(n*(n-1) /2) * len(self.gameboard.tiles)
-        nr_actions = 12 # (nr_cols-1) * 4
+        n =  (self.gameboard.N_col * self.gameboard.N_row )
+        nr_states = 2**16 * (len(self.gameboard.tiles))
+        nr_actions = 16
 
         self.state = np.zeros((self.gameboard.N_row * self.gameboard.N_col + len(self.gameboard.tiles)))
         self.q_table = np.zeros((nr_states, nr_actions))
-        
+
+        # Every combination of placement & rotations
+        self.action_list = {
+             0: [0, 0],
+             1: [0, 90],
+             2: [0, 180],
+             3: [0, 270],
+             4: [1, 0],
+             5: [1, 90],
+             6: [1, 180],
+             7: [1, 270],
+             8: [2, 0],
+             9: [2, 90],
+             10: [2, 180],
+             11: [2, 270],
+             12: [3, 0],
+             13: [3, 90],
+             14: [3, 180],
+             15: [3, 270],
+         }
+
     def fn_load_strategy(self,strategy_file):
-        pass
-        # TO BE COMPLETED BY STUDENT
-        # Here you can load the Q-table (to Q-table of self) from the input parameter strategy_file (used to test how the agent plays)
+        self.q_table = strategy_file
 
     def fn_read_state(self):
+        """
+        first 4 elements denotes which tile is currently used, The remaining
+        elements are the state of the board flattened.
+
+        :return:
+        """
         current_tile = self.gameboard.cur_tile_type # int 0 - 3
         self.state[:4] = [-1, -1, -1, -1]
         self.state[current_tile] = 1
         self.state[4:] = self.gameboard.board.flatten()
-
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # In this function you could calculate the current state of the gane board
-        # You can for example represent the state as an integer entry in the Q-table
-        # This function should not return a value, store the state as an attribute of self
-
-        # Useful variables: 
-        # 'self.gameboard.N_row' number of rows in gameboard
-        # 'self.gameboard.N_col' number of columns in gameboard
-        # 'self.gameboard.board[index_row,index_col]' table indicating if row 'index_row' and column 'index_col' is occupied (+1) or free (-1)
-        # 'self.gameboard.cur_tile_type' identifier of the current tile that should be placed on the game board (integer between 0 and len(self.gameboard.tiles))
+        if self.state not in self.dict:
+            self.dict[self.state] = self.new_state_index
+            self.new_state_index += 1
 
     def fn_select_action(self):
-        pass
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # Choose and execute an action, based on the Q-table or random if epsilon greedy
-        # This function should not return a value, store the action as an attribute of self and exectute the action by moving the tile to the desired position and orientation
+        index = self.dict.get(self.state)
+        # Choose best action
+        if self.strat == 0:
+            action_index =  np.argmax(self.q_table[index, :])
+            if len(action_index) > 1:
+                r = random.randint(0, len(action_index))
+                action_index = action_index[r]
 
-        # Useful variables: 
-        # 'self.epsilon' parameter epsilon in epsilon-greedy policy
 
-        # Useful functions
-        # 'self.gameboard.fn_move(tile_x,tile_orientation)' use this function to execute the selected action
-        # The input argument 'tile_x' contains the column of the tile (0 < tile_x < self.gameboard.N_col)
-        # The input argument 'tile_orientation' contains the number of 90 degree rotations of the tile (0 < tile_orientation < # of non-degenerate rotations)
-        # The function returns 1 if the action is not valid and 0 otherwise
-        # You can use this function to map out which actions are valid or not
-    
+        action = self.action_list.get(action_index)
+        return_code = self.gameboard.fn_move(action[0], action[1])
+
+        # if move is invalid, set the Q_table value to a very low value and choose random actions
+        # until a valid action is chosen
+        while return_code == 1:
+            self.q_table[self.state, action_index] = -5000000
+
+            # select new random action
+            action_index = random.randint(0, 15)
+            action = self.action_list.get(action_index)
+            return_code = self.gameboard.fn_move(action[0], action[1])
+
     def fn_reinforce(self,old_state,reward):
         pass
         # TO BE COMPLETED BY STUDENT
