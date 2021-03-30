@@ -12,8 +12,9 @@ PARAM_TASK2b=6
 
 # Choose to control the game yourself ('human_player=1') to test the setups in the different tasks
 human_player=0
-human_player=1
-
+#human_player=1
+evaluate_agent = 0
+show_game = 0
 # Choose parameter sets for different tasks
 param_set=PARAM_TASK1a
 #param_set=PARAM_TASK1b
@@ -34,13 +35,13 @@ elif param_set==PARAM_TASK2a:
     strategy_file=''
 elif param_set==PARAM_TASK2b:
     strategy_file=''
-
+"""
 if strategy_file:
     evaluate_agent=1
     human_player=1
 else:
     evaluate_agent=0
-
+"""
 
 # The code below initializes the game parameters for the task selected by 'param_set'
 # Game parameters: 
@@ -235,8 +236,60 @@ if isinstance(gameboard.agent,agentClass.THumanAgent):
 
             pygame.display.flip()
             clock.tick(framerate)
-else:
+elif show_game:
     # The player is AI
+    # The player is human
+
+    # Define some colors for painting
+    COLOR_BLACK = (0, 0, 0)
+    COLOR_GREY = (128, 128, 128)
+    COLOR_WHITE = (255, 255, 255)
+    COLOR_RED = (255, 0, 0)
+
+    # Initialize the game engine
+    pygame.init()
+    screen = pygame.display.set_mode((200 + N_col * 20, 150 + N_row * 20))
+    clock = pygame.time.Clock()
+    pygame.key.set_repeat(300, 100)
+    pygame.display.set_caption('Turn-based tetris')
+    font = pygame.font.SysFont('Calibri', 25, True)
+    fontLarge = pygame.font.SysFont('Calibri', 50, True)
+    framerate = 1;
+    while True:
+        gameboard.agent.fn_turn()
+
+        if evaluate_agent:
+            agent_evaluate.fn_read_state()
+            agent_evaluate.fn_select_action()
+
+        if pygame.display.get_active():
+            # Paint game board
+            screen.fill(COLOR_WHITE)
+
+            for i in range(gameboard.N_row):
+                for j in range(gameboard.N_col):
+                    pygame.draw.rect(screen,COLOR_GREY,[100+20*j,80+20*(gameboard.N_row-i),20,20],1)
+                    if gameboard.board[i][j] > 0:
+                        pygame.draw.rect(screen,COLOR_BLACK,[101+20*j,81+20*(gameboard.N_row-i),18,18])
+
+            if gameboard.cur_tile_type is not None:
+                curTile=gameboard.tiles[gameboard.cur_tile_type][gameboard.tile_orientation]
+                for xLoop in range(len(curTile)):
+                    for yLoop in range(curTile[xLoop][0],curTile[xLoop][1]):
+                        pygame.draw.rect(screen,COLOR_RED,[101+20*((xLoop+gameboard.tile_x)%gameboard.N_col),81+20*(gameboard.N_row-(yLoop+gameboard.tile_y)),18,18])
+
+            screen.blit(font.render("Reward: "+str(agent.reward_tots[agent.episode]),True,COLOR_BLACK),[0,0])
+            screen.blit(font.render("Tile "+str(gameboard.tile_count)+"/"+str(gameboard.max_tile_count),True,COLOR_BLACK),[0,20])
+            if framerate>0:
+                screen.blit(font.render("FPS: "+str(framerate),True,COLOR_BLACK),[320,0])
+            screen.blit(font.render("Reward: "+str(agent.reward_tots[agent.episode]),True,COLOR_BLACK),[0,0])
+            if gameboard.gameover:
+                screen.blit(fontLarge.render("Game Over", True,COLOR_RED), [80, 200])
+                screen.blit(font.render("Press ESC to try again", True,COLOR_RED), [85, 265])
+
+            pygame.display.flip()
+            clock.tick(framerate)
+else:
     while True:
         gameboard.agent.fn_turn()
 
