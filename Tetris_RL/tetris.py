@@ -15,9 +15,10 @@ human_player=0
 #human_player=1
 evaluate_agent = 0
 show_game = 0
+
 # Choose parameter sets for different tasks
-param_set=PARAM_TASK1a
-#param_set=PARAM_TASK1b
+#param_set=PARAM_TASK1a
+param_set=PARAM_TASK1b
 #param_set=PARAM_TASK1c
 #param_set=PARAM_TASK1d
 #param_set=PARAM_TASK2a
@@ -254,7 +255,7 @@ elif show_game:
     pygame.display.set_caption('Turn-based tetris')
     font = pygame.font.SysFont('Calibri', 25, True)
     fontLarge = pygame.font.SysFont('Calibri', 50, True)
-    framerate = 1;
+    framerate = 0
     while True:
         gameboard.agent.fn_turn()
 
@@ -289,6 +290,8 @@ elif show_game:
 
             pygame.display.flip()
             clock.tick(framerate)
+            if agent.episode == 900:
+                framerate = 1
 else:
     while True:
         gameboard.agent.fn_turn()

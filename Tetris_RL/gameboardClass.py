@@ -89,7 +89,6 @@ class TGameBoard:
         random.seed(12345)
         self.tile_sequence=[random.randint(0,len(self.tiles)-1) for x in range(self.max_tile_count)]
         random.setstate(rand_state)
-
         if self.agent is not None:
             self.agent.fn_init(self)
 

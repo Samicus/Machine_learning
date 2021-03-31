@@ -5,7 +5,7 @@ import h5py
 from functools import reduce
 import random
 from support_scripts import plot_rewards
-
+from support_scripts import binatodeci
 
 class TQAgent:
     # Agent for learning to play tetris using Q-learning
@@ -28,7 +28,8 @@ class TQAgent:
         nr_actions = 16
 
         self.state = np.zeros((self.gameboard.N_row * self.gameboard.N_col + len(self.gameboard.tiles)))
-        self.q_table = np.random.uniform(low=-2, high=2, size=(nr_states, nr_actions))
+        #self.q_table = np.random.uniform(low=0, high=0.2, size=(nr_states, nr_actions))
+        self.q_table = np.zeros((nr_states, nr_actions))
 
         # Every combination of placement & rotations
         self.action_list = {
@@ -63,45 +64,43 @@ class TQAgent:
         self.state[:4] = [-1, -1, -1, -1]
         self.state[current_tile] = 1
         self.state[4:] = self.gameboard.board.flatten()
-        if "".join(list(self.state.astype(str))) not in self.dict:
-            self.dict["".join(list(self.state.astype(str)))] = self.new_state_index
-            self.new_state_index += 1
-
 
     def fn_select_action(self):
-        index = self.dict.get("".join(list(self.state.astype(str))))
+        binary_rep_state = np.where(self.state == -1, 0, self.state)
+        index = binatodeci(binary_rep_state)
+        r = random.random()
+
         # Choose best action
-        if self.strat == 0:
-            action_index = np.argmax(self.q_table[index, :])
-        self.action = self.action_list.get(action_index)
+        if r > self.epsilon:
+            self.action_index = np.argmax(self.q_table[index, :])
+        else:
+            self.action_index = random.randint(0, 15)
+
+        self.action = self.action_list.get(self.action_index)
         return_code = self.gameboard.fn_move(self.action[0], self.action[1])
+
 
         # if move is invalid, set the Q_table value to a very low value and choose random actions
         # until a valid action is chosen
         while return_code == 1:
-            self.q_table[index, action_index] = -np.inf
+            self.q_table[index, self.action_index] = -np.inf
             # select new random action
-            action_index = random.randint(0, 15)
-            self.action = self.action_list.get(action_index)
+            self.action_index = random.randint(0, 15)
+            self.action = self.action_list.get(self.action_index)
 
             return_code = self.gameboard.fn_move(self.action[0], self.action[1])
 
 
+
     def fn_reinforce(self,old_state,reward):
-        old_state_idx = self.dict.get("".join(list(old_state.astype(str))))
-        new_state_idx = self.dict.get("".join(list(self.state.astype(str))))
-        max_Q_new = max(self.q_table[new_state_idx,:])
 
-        self.q_table[old_state_idx, self.action[0]] += self.alpha*(reward + max_Q_new - self.q_table[old_state_idx, self.action[0]])
+        binary_rep_oldstate = np.where(old_state == -1, 0, old_state)
+        binary_rep_newstate = np.where(self.state == -1, 0, self.state)
+        old_state_idx = binatodeci(binary_rep_oldstate)
+        new_state_idx = binatodeci(binary_rep_newstate)
+        max_Q_new = max(self.q_table[new_state_idx, :])
 
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # Update the Q table using state and action stored as attributes in self and using function arguments for the old state and the reward
-        # This function should not return a value, the Q table is stored as an attribute of self
-
-        # Useful variables: 
-        # 'self.alpha' learning rate
+        self.q_table[old_state_idx, self.action_index] += self.alpha*(reward + max_Q_new - self.q_table[old_state_idx, self.action_index])
 
     def fn_turn(self):
         if self.gameboard.gameover:
@@ -111,7 +110,6 @@ class TQAgent:
             if self.episode%1000==0:
                 saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
                 if self.episode == self.episode_count:
-                    print(self.dict)
 
                     plot_rewards(self.reward_tots)
                     # TO BE COMPLETED BY STUDENT
@@ -121,7 +119,8 @@ class TQAgent:
             else:
                 self.gameboard.fn_restart()
         else:
-            old_state = self.state
+
+            old_state = np.copy(self.state)
             # Select and execute action (move the tile to the desired column and orientation)
             self.fn_select_action()
             # TO BE COMPLETED BY STUDENT
@@ -129,6 +128,7 @@ class TQAgent:
 
             # Drop the tile on the game board
             reward=self.gameboard.fn_drop()
+
             # Here you should write line(s) to add the current reward to the total reward for the current episode, so you can save it to disk later
             self.reward_tots[self.episode] += reward
 
