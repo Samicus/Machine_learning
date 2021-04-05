@@ -11,18 +11,18 @@ PARAM_TASK2a=5
 PARAM_TASK2b=6
 
 # Choose to control the game yourself ('human_player=1') to test the setups in the different tasks
-human_player=0
+human_player=1
 #human_player=1
 evaluate_agent = 0
 show_game = 0
 
 # Choose parameter sets for different tasks
 #param_set=PARAM_TASK1a
-param_set=PARAM_TASK1b
+#param_set=PARAM_TASK1b
 #param_set=PARAM_TASK1c
 #param_set=PARAM_TASK1d
 #param_set=PARAM_TASK2a
-#param_set=PARAM_TASK2b
+param_set=PARAM_TASK2b
 
 # Use files to evaluate strategy
 # If you change 'strategy_file' to the location of a file containing a stored Q-table or Q-network, you can evaluate the success of the found strategy

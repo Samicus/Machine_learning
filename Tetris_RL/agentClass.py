@@ -6,6 +6,13 @@ from functools import reduce
 import random
 from support_scripts import plot_rewards
 from support_scripts import binatodeci
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from Deep_Q_Network import DQN
+from replay_memory import ReplayMemory
+
 
 class TQAgent:
     # Agent for learning to play tetris using Q-learning
@@ -151,23 +158,27 @@ class TDQNAgent:
         self.sync_target_episode_count=sync_target_episode_count
         self.episode=0
         self.episode_count=episode_count
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.EPS_START = 0.9
+        self.EPS_END = 0.05
+        self.EPS_DECAY = 200
+        self.TARGET_UPDATE =10
+        self.GAMMA = 0.999
 
     def fn_init(self,gameboard):
         self.gameboard=gameboard
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # In this function you could set up and initialize the states, actions, the Q-networks, experience replay buffer and storage for the rewards
-        # You can use any framework for constructing the networks, for example pytorch or tensorflow
-        # This function should not return a value, store Q network etc as attributes of self
+        n_row = self.gameboard.N_row
+        n_col = self.gameboard.N_col
+        tile_size = self.gameboard.tile_size
+        h = n_row + tile_size
+        w = n_col
+        self.state = torch.zeros((h, w))
+        self.nr_actions = n_col*4
+        self.policy_net = DQN(h, w, self.nr_actions).to(self.device)
+        self.target_net = DQN(h, w, self.nr_actions).to(self.device)
+        self.target_net.load_state_dict(self.policy_net.parameters())
+        self.memory = ReplayMemory(self.replay_buffer_size)
 
-        # Useful variables: 
-        # 'gameboard.N_row' number of rows in gameboard
-        # 'gameboard.N_col' number of columns in gameboard
-        # 'len(gameboard.tiles)' number of different tiles
-        # 'self.alpha' the learning rate for stochastic gradient descent
-        # 'self.episode_count' the total number of episodes in the training
-        # 'self.replay_buffer_size' the number of quadruplets stored in the experience replay buffer
 
     def fn_load_strategy(self,strategy_file):
         pass
@@ -175,22 +186,28 @@ class TDQNAgent:
         # Here you can load the Q-network (to Q-network of self) from the strategy_file
 
     def fn_read_state(self):
-        pass
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # In this function you could calculate the current state of the gane board
-        # You can for example represent the state as a copy of the game board and the identifier of the current tile
-        # This function should not return a value, store the state as an attribute of self
+        curtile = self.gameboard.tiles[self.gameboard.cur_tile_type][self.gameboard.tile_orientation]
 
-        # Useful variables: 
-        # 'self.gameboard.N_row' number of rows in gameboard
-        # 'self.gameboard.N_col' number of columns in gameboard
-        # 'self.gameboard.board[index_row,index_col]' table indicating if row 'index_row' and column 'index_col' is occupied (+1) or free (-1)
-        # 'self.gameboard.cur_tile_type' identifier of the current tile that should be placed on the game board (integer between 0 and len(self.gameboard.tiles))
+        n_row = self.gameboard.N_row
+        n_col = self.gameboard.N_col
+        tile_size = self.gameboard.tile_size
+        state = np.zeros((n_row + tile_size, n_col))
+        state[:n_row, :] = self.gameboard.board
+        state[n_row:, :] = -1
+        for xLoop in range(len(curtile)):
+            state[self.gameboard.tile_y + curtile[xLoop][0]:self.gameboard.tile_y + curtile[xLoop][1],
+            (xLoop + self.gameboard.tile_x) % self.gameboard.N_col] = 1
+        self.state = torch.from_numpy(state)
 
     def fn_select_action(self):
-        pass
+        sample = random.random()
+        eps_threshold = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1 * self.episode/self.EPS_DECAY)
+        self.episode += 1
+        if sample > eps_threshold:
+            with torch.no_grad():
+                return self.policy_net(self.state).max(1)[1].view(1, 1)
+        else:
+            return torch.tensor([[random.randrange(self.nr_actions)]], device=self.device, dtype=torch.long)
         # TO BE COMPLETED BY STUDENT
         # This function should be written by you
         # Instructions:
