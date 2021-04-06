@@ -12,6 +12,10 @@ import torch.nn.functional as F
 import torch.optim as optim
 from Deep_Q_Network import DQN
 from replay_memory import ReplayMemory
+from collections import namedtuple
+
+
+
 
 
 class TQAgent:
@@ -159,11 +163,18 @@ class TDQNAgent:
         self.episode=0
         self.episode_count=episode_count
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.action_idx = 0
+        self.Transition = namedtuple('Transition',
+                                      ('state', 'action', 'next_state', 'reward'))
+        self.GAMMA = 0.999
+
+        """
         self.EPS_START = 0.9
         self.EPS_END = 0.05
         self.EPS_DECAY = 200
         self.TARGET_UPDATE =10
-        self.GAMMA = 0.999
+        
+        """
 
     def fn_init(self,gameboard):
         self.gameboard=gameboard
@@ -176,10 +187,16 @@ class TDQNAgent:
         self.nr_actions = n_col*4
         self.policy_net = DQN(h, w, self.nr_actions).to(self.device)
         self.target_net = DQN(h, w, self.nr_actions).to(self.device)
-        self.target_net.load_state_dict(self.policy_net.parameters())
+        self.target_net.load_state_dict(self.policy_net.state_dict())
+        self.target_net.eval()
         self.memory = ReplayMemory(self.replay_buffer_size)
-
-
+        idx = 0
+        self.action_dir = {}
+        for i in range(4):
+            for col in range(n_col):
+                self.action_dir[idx] = [col, i]
+                idx += 1
+        self.optimizer = optim.RMSprop(self.policy_net.parameters())
     def fn_load_strategy(self,strategy_file):
         pass
         # TO BE COMPLETED BY STUDENT
@@ -201,42 +218,56 @@ class TDQNAgent:
 
     def fn_select_action(self):
         sample = random.random()
-        eps_threshold = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1 * self.episode/self.EPS_DECAY)
+        #eps_threshold = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1 * self.episode/self.EPS_DECAY)
+        eps_threshold = max(self.epsilon, 1-self.episode/self.epsilon_scale)
         self.episode += 1
         if sample > eps_threshold:
             with torch.no_grad():
-                return self.policy_net(self.state).max(1)[1].view(1, 1)
+                self.action_idx = self.policy_net(self.state).max(1)[1].view(1, 1).item()
+                action = self.action_dir.get(self.action_idx)
+                return_code = self.gameboard.fn_move(action[0], action[1])
+                while return_code == 1:
+                    self.action_idx = random.randint(0,len(self.action_dir)-1)
+                    action = self.action_dir.get(self.action_idx)
+                    return_code = self.gameboard.fn_move(action[0], action[1])
         else:
-            return torch.tensor([[random.randrange(self.nr_actions)]], device=self.device, dtype=torch.long)
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # Choose and execute an action, based on the output of the Q-network for the current state, or random if epsilon greedy
-        # This function should not return a value, store the action as an attribute of self and exectute the action by moving the tile to the desired position and orientation
+            return_code = 1
+            while return_code == 1:
 
-        # Useful variables: 
-        # 'self.epsilon' parameter epsilon in epsilon-greedy policy
-        # 'self.epsilon_scale' parameter for the scale of the episode number where epsilon_N changes from unity to epsilon
+                self.action_idx = random.randint(0, len(self.action_dir) -1)
+                action = self.action_dir.get(self.action_idx)
+                return_code = self.gameboard.fn_move(action[0], action[1])
 
-        # Useful functions
-        # 'self.gameboard.fn_move(tile_x,tile_orientation)' use this function to execute the selected action
-        # The input argument 'tile_x' contains the column of the tile (0 < tile_x < self.gameboard.N_col)
-        # The input argument 'tile_orientation' contains the number of 90 degree rotations of the tile (0 < tile_orientation < # of non-degenerate rotations)
-        # The function returns 1 if the action is not valid and 0 otherwise
-        # You can use this function to map out which actions are valid or not
+            #torch.tensor([[random.randrange(self.nr_actions)]], device=self.device, dtype=torch.long)
 
-    def fn_reinforce(self,batch):
-        pass
-        # TO BE COMPLETED BY STUDENT
-        # This function should be written by you
-        # Instructions:
-        # Update the Q network using a batch of quadruplets (old state, last action, last reward, new state)
-        # Calculate the loss function by first, for each old state, use the Q-network to calculate the values Q(s_old,a), i.e. the estimate of the future reward for all actions a
-        # Then repeat for the target network to calculate the value \hat Q(s_new,a) of the new state (use \hat Q=0 if the new state is terminal)
-        # This function should not return a value, the Q table is stored as an attribute of self
 
-        # Useful variables: 
-        # The input argument 'batch' contains a sample of quadruplets used to update the Q-network
+    def fn_reinforce(self):
+        if len(self.memory) < self.batch_size:
+            return
+        transitions = self.memory.sample(self.batch_size)
+        batch = self.Transition(*zip(*transitions))
+        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
+                                                batch.next_state)), device=self.device, dtype=torch.bool)
+        non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
+
+        state_batch = torch.cat(batch.state)
+        action_batch = torch.cat(batch.action)
+        reward_batch = torch.cat(batch.reward)
+
+
+        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
+
+        next_state_values = torch.zeros(self.batch_size, device=self.device)
+        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
+        expected_state_action_values = (next_state_values *self.GAMMA) + reward_batch
+        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+
+        self.optimizer.zero_grad()
+        loss.backward()
+        for param in self.policy_net.parameters():
+            param.grad.data.clamp_(-1, 1)
+        self.optimizer.step()
+
 
     def fn_turn(self):
         if self.gameboard.gameover:
@@ -254,30 +285,27 @@ class TDQNAgent:
             else:
                 self.gameboard.fn_restart()
         else:
-            # Select and execute action (move the tile to the desired column and orientation)
+
             self.fn_select_action()
-            # TO BE COMPLETED BY STUDENT
-            # Here you should write line(s) to copy the old state into the variable 'old_state' which is later stored in the ecperience replay buffer
-
-            # Drop the tile on the game board
+            old_state = torch.tensor(self.state, device=self.device)
             reward=self.gameboard.fn_drop()
-
-            # TO BE COMPLETED BY STUDENT
-            # Here you should write line(s) to add the current reward to the total reward for the current episode, so you can save it to disk later
-
-            # Read the new state
+            reward = torch.tensor([reward], device=self.device)
+            action = torch.tensor([self.action_idx], device=self.device)
             self.fn_read_state()
+            next_state = torch.tensor(self.state, device=self.device)
 
+            self.memory.push(old_state, action, next_state, reward)
+
+            self.fn_reinforce()
             # TO BE COMPLETED BY STUDENT
             # Here you should write line(s) to store the state in the experience replay buffer
 
-            if len(self.exp_buffer) >= self.replay_buffer_size:
-                # TO BE COMPLETED BY STUDENT
-                # Here you should write line(s) to create a variable 'batch' containing 'self.batch_size' quadruplets 
-                self.fn_reinforce(batch)
+            #
 
+            self.fn_reinforce()
+            if len(self.memory) >= self.replay_buffer_size:
                 if self.episode_count % self.sync_target_episode_count == 0:
-                    pass
+                    self.target_net.load_state_dict(self.policy_net.state_dict())
                     # TO BE COMPLETED BY STUDENT
                     # Here you should write line(s) to copy the current network to the target network
 
