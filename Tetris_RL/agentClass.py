@@ -115,6 +115,7 @@ class TQAgent:
 
     def fn_turn(self):
         if self.gameboard.gameover:
+            print(self.episode)
             self.episode+=1
             if self.episode%100==0:
                 print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(self.reward_tots[range(self.episode-100,self.episode)])),')')
@@ -166,8 +167,9 @@ class TDQNAgent:
         self.action_idx = 0
         self.Transition = namedtuple('Transition',
                                       ('state', 'action', 'next_state', 'reward'))
-        self.GAMMA = 0.999
-
+        self.GAMMA = 1 - alpha
+        self.reward_tots = np.zeros(episode_count)
+        self.alpha = alpha
         """
         self.EPS_START = 0.9
         self.EPS_END = 0.05
@@ -183,7 +185,7 @@ class TDQNAgent:
         tile_size = self.gameboard.tile_size
         h = n_row + tile_size
         w = n_col
-        self.state = torch.zeros((h, w))
+        self.state = self.fn_read_state
         self.nr_actions = n_col*4
         self.policy_net = DQN(h, w, self.nr_actions).to(self.device)
         self.target_net = DQN(h, w, self.nr_actions).to(self.device)
@@ -192,11 +194,14 @@ class TDQNAgent:
         self.memory = ReplayMemory(self.replay_buffer_size)
         idx = 0
         self.action_dir = {}
+
         for i in range(4):
             for col in range(n_col):
                 self.action_dir[idx] = [col, i]
                 idx += 1
-        self.optimizer = optim.RMSprop(self.policy_net.parameters())
+        self.optimizer = optim.SGD(lr=self.alpha, params=self.policy_net.parameters())
+
+        
     def fn_load_strategy(self,strategy_file):
         pass
         # TO BE COMPLETED BY STUDENT
@@ -212,15 +217,19 @@ class TDQNAgent:
         state[:n_row, :] = self.gameboard.board
         state[n_row:, :] = -1
         for xLoop in range(len(curtile)):
+            #state[self.gameboard.tile_y + curtile[xLoop][0]:self.gameboard.tile_y + curtile[xLoop][1],
             state[self.gameboard.tile_y + curtile[xLoop][0]:self.gameboard.tile_y + curtile[xLoop][1],
+
             (xLoop + self.gameboard.tile_x) % self.gameboard.N_col] = 1
-        self.state = torch.from_numpy(state)
+        self.state = np.zeros((1, 1,n_row+tile_size, n_col))
+        self.state[0, 0, :, :] = state
+        self.state = torch.Tensor(self.state).to(self.device)
 
     def fn_select_action(self):
         sample = random.random()
         #eps_threshold = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1 * self.episode/self.EPS_DECAY)
         eps_threshold = max(self.epsilon, 1-self.episode/self.epsilon_scale)
-        self.episode += 1
+
         if sample > eps_threshold:
             with torch.no_grad():
                 self.action_idx = self.policy_net(self.state).max(1)[1].view(1, 1).item()
@@ -260,7 +269,7 @@ class TDQNAgent:
         next_state_values = torch.zeros(self.batch_size, device=self.device)
         next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
         expected_state_action_values = (next_state_values *self.GAMMA) + reward_batch
-        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
+        loss = F.mse_loss(state_action_values, expected_state_action_values.unsqueeze(1))
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -286,29 +295,24 @@ class TDQNAgent:
                 self.gameboard.fn_restart()
         else:
 
-            self.fn_select_action()
-            old_state = torch.tensor(self.state, device=self.device)
-            reward=self.gameboard.fn_drop()
-            reward = torch.tensor([reward], device=self.device)
-            action = torch.tensor([self.action_idx], device=self.device)
+            
+            old_state = self.state
+            reward = self.gameboard.fn_drop()
+            reward = torch.tensor([[reward]], device=self.device)
             self.fn_read_state()
-            next_state = torch.tensor(self.state, device=self.device)
+            next_state =  self.state 
+            self.fn_select_action()
+            action = torch.tensor([[self.action_idx]], device=self.device)
 
             self.memory.push(old_state, action, next_state, reward)
-
+            self.reward_tots[self.episode] += reward
             self.fn_reinforce()
-            # TO BE COMPLETED BY STUDENT
-            # Here you should write line(s) to store the state in the experience replay buffer
 
-            #
-
-            self.fn_reinforce()
             if len(self.memory) >= self.replay_buffer_size:
                 if self.episode_count % self.sync_target_episode_count == 0:
                     self.target_net.load_state_dict(self.policy_net.state_dict())
-                    # TO BE COMPLETED BY STUDENT
-                    # Here you should write line(s) to copy the current network to the target network
-
+                    
+                   
 class THumanAgent:
     def fn_init(self,gameboard):
         self.episode=0

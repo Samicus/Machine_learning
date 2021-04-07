@@ -7,7 +7,7 @@ N_row = 8
 N_col = 8
 tile_size = 4
 max_tile_count = 50
-stochastic_prob = 1
+stochastic_prob = 0
 
 alpha = 0.001
 epsilon = 0.001
@@ -30,7 +30,7 @@ gameboard.fn_drop()
 gameboard.fn_new_tile()
 gameboard.fn_drop()
 gameboard.fn_new_tile()
-
+gameboard.fn_move(0,0)
 #gameboard.fn_new_tile()
 #gameboard.fn_drop()
 curtile = gameboard.tiles[gameboard.cur_tile_type][gameboard.tile_orientation]
@@ -43,7 +43,7 @@ state[8:, :] = -1
 
 for xLoop in range(len(curtile)):
 
-    state[gameboard.tile_y + curtile[xLoop][0]:gameboard.tile_y + curtile[xLoop][1],(xLoop + gameboard.tile_x) % gameboard.N_col] = 1
+    state[gameboard.tile_y +curtile[xLoop][0]:gameboard.tile_y + curtile[xLoop][1],(xLoop + gameboard.tile_x) % gameboard.N_col] = 1
 print(state)
 print(gameboard.tile_y)
 #pygame.draw.rect(screen,COLOR_RED,[101+20*((xLoop+gameboard.tile_x)%gameboard.N_col),81+20*(gameboard.N_row-(yLoop+gameboard.tile_y)),18,18])
