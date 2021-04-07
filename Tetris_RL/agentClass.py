@@ -199,7 +199,7 @@ class TDQNAgent:
             for col in range(n_col):
                 self.action_dir[idx] = [col, i]
                 idx += 1
-        self.optimizer = optim.SGD(lr=self.alpha, params=self.policy_net.parameters())
+        self.optimizer = optim.Adam(lr=self.alpha, params=self.policy_net.parameters())
 
         
     def fn_load_strategy(self,strategy_file):
@@ -269,9 +269,9 @@ class TDQNAgent:
         next_state_values = torch.zeros(self.batch_size, device=self.device)
         next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
         expected_state_action_values = (next_state_values *self.GAMMA) + reward_batch
-        loss = F.mse_loss(state_action_values, expected_state_action_values.unsqueeze(1))
 
         self.optimizer.zero_grad()
+        loss = F.smooth_l1_loss(state_action_values, expected_state_action_values.unsqueeze(1))
         loss.backward()
         for param in self.policy_net.parameters():
             param.grad.data.clamp_(-1, 1)
@@ -292,6 +292,7 @@ class TDQNAgent:
             if self.episode>=self.episode_count:
                 raise SystemExit(0)
             else:
+
                 self.gameboard.fn_restart()
         else:
 
@@ -306,12 +307,11 @@ class TDQNAgent:
 
             self.memory.push(old_state, action, next_state, reward)
             self.reward_tots[self.episode] += reward
-            self.fn_reinforce()
-
-            if len(self.memory) >= self.replay_buffer_size:
-                if self.episode_count % self.sync_target_episode_count == 0:
+            
+            if (len(self.memory) >= self.replay_buffer_size):
+                self.fn_reinforce()
+                if ((self.episode % self.sync_target_episode_count)==0):
                     self.target_net.load_state_dict(self.policy_net.state_dict())
-                    
                    
 class THumanAgent:
     def fn_init(self,gameboard):
