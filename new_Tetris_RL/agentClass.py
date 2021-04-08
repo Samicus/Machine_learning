@@ -198,13 +198,17 @@ class TDQNAgent:
 
         idx = 0
         self.action_dir = {}
-        self.eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)
+        
         for i in range(4):
             for col in range(self.n_col):
                 self.action_dir[idx] = [col, i]
                 idx += 1
 
         
+        self.eps = 0.9
+        self.eps_decay = 0.0001
+        self.eps_end = 0.1
+
     def fn_load_strategy(self,strategy_file):
         pass
         # TO BE COMPLETED BY STUDENT
@@ -261,7 +265,7 @@ class TDQNAgent:
         return self.action_idx
             #torch.tensor([[random.randrange(self.nr_actions)]], device=self.device, dtype=torch.long)
         """
-        if sample > self.eps_threshold:
+        if sample > self.eps:
 
             q_online = calculate_q(self.model.offline_model, self.state, self.device)
             self.action_idx = np.argmax(q_online)
@@ -292,8 +296,6 @@ class TDQNAgent:
                 plot_rewards(self.reward_tots)
                 raise SystemExit(0)
             else:
-
-               
                 self.gameboard.fn_restart()
         else:
 
@@ -309,7 +311,8 @@ class TDQNAgent:
 
             self.reward_tots[self.episode] += reward
             if return_code == 1:
-                reward = -1000
+                reward = -30 
+
             self.replay_buffer.add(self.Transition(old_state, action, reward, next_state))
 
 
@@ -322,10 +325,10 @@ class TDQNAgent:
                 loss.backward()
                 self.model.optimizer.step()
                 self.update_count += 1
+
                 if self.update_count % self.sync_target_episode_count == 0:
                     self.model.update_target_network()
-                    self.eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)
-
+                    self.eps = max(self.eps - self.eps_decay, self.eps_end)
                 #self.fn_reinforce()
 
 
