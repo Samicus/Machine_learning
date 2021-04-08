@@ -4,19 +4,27 @@ import math
 import h5py
 from functools import reduce
 import random
-from support_scripts import plot_rewards
-from support_scripts import binatodeci
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+
+from collections import namedtuple
+from ddqn_model import DeepDoubleQNetwork
+from memory import ExperienceReplay
+from support_scripts import calculate_q
+from support_scripts import calculate_q_targets
+from support_scripts import sample_batch_and_calculate_loss
+from support_scripts import calculate_loss
+
+
+"""
 from Deep_Q_Network import DQN
 from replay_memory import ReplayMemory
-from collections import namedtuple
-from ddqn_model import DeepQNetwork
-
-
-
+from support_scripts import plot_rewards
+from support_scripts import binatodeci
+"""
 
 class TQAgent:
     # Agent for learning to play tetris using Q-learning
@@ -160,23 +168,17 @@ class TDQNAgent:
         self.epsilon_scale=epsilon_scale
         self.replay_buffer_size=replay_buffer_size
         self.batch_size=batch_size
-        self.sync_target_episode_count=sync_target_episode_count
+        self.sync_target_episode_count=sync_target_episode_count    # tau
         self.episode=0
         self.episode_count=episode_count
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.action_idx = 0
-        self.Transition = namedtuple('Transition',
-                                      ('state', 'action', 'next_state', 'reward'))
-        self.GAMMA = 1 - alpha
+        self.Transition =  namedtuple("Transition", ["s", "a", "r", "next_s", "t"])
         self.reward_tots = np.zeros(episode_count)
         self.alpha = alpha
-        """
-        self.EPS_START = 0.9
-        self.EPS_END = 0.05
-        self.EPS_DECAY = 200
-        self.TARGET_UPDATE =10
-        
-        """
+        self.gamma = 0.99
+        self.time_step = 0
+        self.update_count = 0
 
     def fn_init(self,gameboard):
         self.gameboard=gameboard
@@ -185,24 +187,24 @@ class TDQNAgent:
         tile_size = self.gameboard.tile_size
         h = self.n_row + tile_size
         w = self.n_col
+
         self.fn_read_state()
+
         nr_states = len(self.state[0])
         self.nr_actions = self.n_col*4
-        #self.policy_net = DQN(h, w, self.nr_actions).to(self.device)
-        #self.target_net = DQN(h, w, self.nr_actions).to(self.device)
-        self.policy_net = DeepQNetwork(nr_states,self.nr_actions)
-        self.target_net = DeepQNetwork(nr_states,self.nr_actions)
+
+        self.replay_buffer = ExperienceReplay(device=self.device, num_states=nr_states)
+
+        self.model = DeepDoubleQNetwork(nr_states,self.nr_actions, lr=0.01)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
-        self.memory = ReplayMemory(self.replay_buffer_size)
         idx = 0
         self.action_dir = {}
-
+        self.eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)
         for i in range(4):
             for col in range(self.n_col):
                 self.action_dir[idx] = [col, i]
                 idx += 1
-        self.optimizer = optim.Adam(lr=self.alpha, params=self.policy_net.parameters())
 
         
     def fn_load_strategy(self,strategy_file):
@@ -240,18 +242,17 @@ class TDQNAgent:
 
     def fn_select_action(self):
         sample = random.random()
-        #eps_threshold = self.EPS_END + (self.EPS_START - self.EPS_END) * math.exp(-1 * self.episode/self.EPS_DECAY)
-        self.eps_threshold = max(self.epsilon, 1-self.episode/self.epsilon_scale)
 
         if sample > self.eps_threshold:
-            with torch.no_grad():
-                self.action_idx = self.policy_net(self.state).max(1)[1].view(1, 1).item()
+
+            q_online = calculate_q(self.model.offline_model, self.state, self.device)
+            self.action_idx = np.argmax(q_online)
+            action = self.action_dir.get(self.action_idx)
+            return_code = self.gameboard.fn_move(action[0], action[1])
+            while return_code == 1:
+                self.action_idx = random.randint(0,len(self.action_dir)-1)
                 action = self.action_dir.get(self.action_idx)
                 return_code = self.gameboard.fn_move(action[0], action[1])
-                while return_code == 1:
-                    self.action_idx = random.randint(0,len(self.action_dir)-1)
-                    action = self.action_dir.get(self.action_idx)
-                    return_code = self.gameboard.fn_move(action[0], action[1])
         else:
             return_code = 1
             while return_code == 1:
@@ -259,38 +260,12 @@ class TDQNAgent:
                 self.action_idx = random.randint(0, len(self.action_dir) -1)
                 action = self.action_dir.get(self.action_idx)
                 return_code = self.gameboard.fn_move(action[0], action[1])
-
+        return self.action_idx
             #torch.tensor([[random.randrange(self.nr_actions)]], device=self.device, dtype=torch.long)
 
 
     def fn_reinforce(self):
-        if len(self.memory) < self.batch_size:
-            return
-
-        transitions = self.memory.sample(self.batch_size)
-        batch = self.Transition(*zip(*transitions))
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                                batch.next_state)), device=self.device, dtype=torch.bool)
-        non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
-
-        state_batch = torch.cat(batch.state)
-        action_batch = torch.cat(batch.action)
-        reward_batch = torch.cat(batch.reward)
-
-
-        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
-
-        next_state_values = torch.zeros(self.batch_size, device=self.device)
-        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
-        expected_state_action_values = (next_state_values *self.GAMMA) + reward_batch
-
-        self.optimizer.zero_grad()
-        loss = F.mse_loss(state_action_values, expected_state_action_values.unsqueeze(1))
-        print(loss)
-        loss.backward()
-        for param in self.policy_net.parameters():
-            param.grad.data.clamp_(-1, 1)
-        self.optimizer.step()
+        pass
 
 
     def fn_turn(self):
@@ -312,20 +287,34 @@ class TDQNAgent:
                 self.gameboard.fn_restart()
         else:
 
-            
+
+
+            action = self.fn_select_action()
+            action = torch.tensor([[action]], device=self.device)
             old_state = self.state
             reward = self.gameboard.fn_drop()
             reward = torch.tensor([[reward]], device=self.device)
             self.fn_read_state()
-            next_state =  self.state 
-            self.fn_select_action()
-            action = torch.tensor([[self.action_idx]], device=self.device)
-            
-            self.memory.push(old_state, action, next_state, reward)
+            next_state =  self.state
+
+            self.replay_buffer.add(self.Transition(old_state, action, reward, next_state, self.time_step ))
+
+            self.time_step += 1
             self.reward_tots[self.episode] += reward
 
-            if (len(self.memory) >= self.replay_buffer_size):
-                self.fn_reinforce()
+            if self.replay_buffer.buffer_length > 1000: # self.replay_buffer_size:
+                loss = sample_batch_and_calculate_loss(
+                    self.model, self.replay_buffer, self.batch_size, self.gamma, self.device
+                )
+                self.model.optimizer.zero_grad()
+                loss.backward()
+                self.model.optimizer.step()
+                self.update_count += 1
+                if self.update_count % self.sync_target_episode_count == 0:
+                    self.model.update_target_network()
+                    self.eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)
+
+                #self.fn_reinforce()
 
 
 class THumanAgent:
