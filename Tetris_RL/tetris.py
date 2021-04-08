@@ -54,7 +54,7 @@ else:
 # Training parameters:
 # 'alpha' is learning rate in Q-learning or for the stochastic gradient descent in deep Q-networks
 # 'epsilon' is probability to choose random action in epsilon-greedy policy
-# 'episode_count' is the number of epsiodes a training session lasts
+# 'episode_count' is the number of epsiodes a training session lastspi
 
 # Additional training parameters for deep Q-networks:
 # 'epsilon_scale' is the scale of the episode number where epsilon_N changes from unity to epsilon
