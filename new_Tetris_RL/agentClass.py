@@ -177,7 +177,6 @@ class TDQNAgent:
         self.reward_tots = np.zeros(episode_count)
         self.alpha = alpha
         self.gamma = 0.99
-        self.time_step = 0
         self.update_count = 0
 
 
@@ -261,10 +260,11 @@ class TDQNAgent:
         if sample > eps_threshold:
 
             q_online = calculate_q(self.model.offline_model, self.state, self.device)
-            q_online[0][self.invalid_actions.get(self.gameboard.cur_tile_type)] = -999999
+            q_online[0][self.invalid_actions.get(self.gameboard.cur_tile_type)] = -np.inf
             self.action_idx = np.argmax(q_online[0])
             action = self.action_dir.get(self.action_idx)
             return_code = self.gameboard.fn_move(action[0], action[1])
+
         else:
             self.action_idx = random.randint(0, len(self.action_dir) -1)
             action = self.action_dir.get(self.action_idx)
@@ -274,10 +274,9 @@ class TDQNAgent:
                 action = self.action_dir.get(self.action_idx)
                 return_code = self.gameboard.fn_move(action[0], action[1])
 
-        return self.action_idx, return_code
+        return self.action_idx
 
     def fn_reinforce(self):
-
 
         loss = sample_batch_and_calculate_loss(
             self.model, self.replay_buffer, self.batch_size, self.gamma, self.device
@@ -304,14 +303,12 @@ class TDQNAgent:
                 raise SystemExit(0)
             else:
 
-                if self.update_count % self.sync_target_episode_count == 0:
-                    self.model.update_target_network()
                 self.gameboard.fn_restart()
+                
         else:
 
 
-
-            action, return_code = self.fn_select_action()
+            action = self.fn_select_action()
             action = torch.tensor([[action]], device=self.device)
             old_state = self.state
             reward = self.gameboard.fn_drop()
@@ -325,8 +322,9 @@ class TDQNAgent:
             self.replay_buffer.add(self.Transition(old_state, action, reward, next_state))
 
 
-
             if self.replay_buffer.buffer_length >  self.replay_buffer_size:
+                if self.update_count % self.sync_target_episode_count == 0:
+                    self.model.update_target_network()
                 self.fn_reinforce()
                 self.update_count += 1
 
