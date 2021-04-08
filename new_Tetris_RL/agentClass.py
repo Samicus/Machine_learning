@@ -194,10 +194,8 @@ class TDQNAgent:
         self.nr_actions = self.n_col*4
 
         self.replay_buffer = ExperienceReplay(device=self.device, num_states=nr_states)
+        self.model = DeepDoubleQNetwork(self.device, nr_states,self.nr_actions, lr=0.01)
 
-        self.model = DeepDoubleQNetwork(nr_states,self.nr_actions, lr=0.01)
-        self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.target_net.eval()
         idx = 0
         self.action_dir = {}
         self.eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)

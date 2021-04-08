@@ -55,12 +55,12 @@ class DeepQNetwork(nn.Module):
 
 
 class DeepDoubleQNetwork(object):
-    def __init__(self, device, num_states, lr):
+    def __init__(self, device, num_states, num_actions, lr):
         self.device = device
         self.num_states = num_states
-        self.num_actions = 2
+        self.num_actions = num_actions
         self.lr = lr
-
+        
         # Creating the two deep Q-networks
         self.online_model = DeepQNetwork(self.num_states, self.num_actions).to(
             device=self.device
@@ -68,7 +68,12 @@ class DeepDoubleQNetwork(object):
         self.offline_model = DeepQNetwork(self.num_states, self.num_actions).to(
             device=self.device
         )
-
+        """
+        # Creating the two deep Q-networks
+        self.online_model = DeepQNetwork(self.num_states, self.num_actions)
+        
+        self.offline_model = DeepQNetwork(self.num_states, self.num_actions)
+        """
         # Define optimizer
         self.optimizer = torch.optim.Adam(self.online_model.parameters(), self.lr)
 
