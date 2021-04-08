@@ -1,6 +1,6 @@
 
 import collections
-
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -116,3 +116,10 @@ def calculate_loss(
     del q_target, q_online_curr
 
     return loss
+
+def plot_rewards(reward_tots):
+    plt.figure()
+    plt.plot(reward_tots)
+    plt.xlabel("Episodes")
+    plt.ylabel("Reward")
+    plt.show()

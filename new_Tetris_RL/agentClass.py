@@ -17,7 +17,7 @@ from support_scripts import calculate_q
 from support_scripts import calculate_q_targets
 from support_scripts import sample_batch_and_calculate_loss
 from support_scripts import calculate_loss
-
+from support_scripts import plot_rewards
 
 """
 from Deep_Q_Network import DQN
@@ -173,7 +173,7 @@ class TDQNAgent:
         self.episode_count=episode_count
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.action_idx = 0
-        self.Transition =  namedtuple("Transition", ["s", "a", "r", "next_s", "t"])
+        self.Transition =  namedtuple("Transition", ["s", "a", "r", "next_s"])
         self.reward_tots = np.zeros(episode_count)
         self.alpha = alpha
         self.gamma = 0.99
@@ -194,7 +194,7 @@ class TDQNAgent:
         self.nr_actions = self.n_col*4
 
         self.replay_buffer = ExperienceReplay(device=self.device, num_states=nr_states)
-        self.model = DeepDoubleQNetwork(self.device, nr_states,self.nr_actions, lr=0.01)
+        self.model = DeepDoubleQNetwork(self.device, nr_states,self.nr_actions, lr=0.003)
 
         idx = 0
         self.action_dir = {}
@@ -240,7 +240,7 @@ class TDQNAgent:
 
     def fn_select_action(self):
         sample = random.random()
-
+        """
         if sample > self.eps_threshold:
 
             q_online = calculate_q(self.model.offline_model, self.state, self.device)
@@ -260,7 +260,18 @@ class TDQNAgent:
                 return_code = self.gameboard.fn_move(action[0], action[1])
         return self.action_idx
             #torch.tensor([[random.randrange(self.nr_actions)]], device=self.device, dtype=torch.long)
+        """
+        if sample > self.eps_threshold:
 
+            q_online = calculate_q(self.model.offline_model, self.state, self.device)
+            self.action_idx = np.argmax(q_online)
+            action = self.action_dir.get(self.action_idx)
+            return_code = self.gameboard.fn_move(action[0], action[1])
+        else:
+            self.action_idx = random.randint(0, len(self.action_dir) -1)
+            action = self.action_dir.get(self.action_idx)
+            return_code = self.gameboard.fn_move(action[0], action[1])
+        return self.action_idx, return_code
 
     def fn_reinforce(self):
         pass
@@ -278,6 +289,7 @@ class TDQNAgent:
                     # TO BE COMPLETED BY STUDENT
                     # Here you can save the rewards and the Q-network to data files
             if self.episode>=self.episode_count:
+                plot_rewards(self.reward_tots)
                 raise SystemExit(0)
             else:
 
@@ -287,7 +299,7 @@ class TDQNAgent:
 
 
 
-            action = self.fn_select_action()
+            action, return_code = self.fn_select_action()
             action = torch.tensor([[action]], device=self.device)
             old_state = self.state
             reward = self.gameboard.fn_drop()
@@ -295,10 +307,12 @@ class TDQNAgent:
             self.fn_read_state()
             next_state =  self.state
 
-            self.replay_buffer.add(self.Transition(old_state, action, reward, next_state, self.time_step ))
-
-            self.time_step += 1
             self.reward_tots[self.episode] += reward
+            if return_code == 1:
+                reward = -1000
+            self.replay_buffer.add(self.Transition(old_state, action, reward, next_state))
+
+
 
             if self.replay_buffer.buffer_length > 1000: # self.replay_buffer_size:
                 loss = sample_batch_and_calculate_loss(

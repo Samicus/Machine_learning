@@ -87,7 +87,6 @@ class ExperienceReplay:
             state_batch[i, :] = self.buffer[index].s
             action_batch[i] = self.buffer[index].a
             reward_batch[i] = self.buffer[index].r
-            nonterminal_batch[i] = self.buffer[index].t
             next_state_batch[i, :] = self.buffer[index].next_s
 
         return (
