@@ -13,9 +13,9 @@ class DeepQNetwork(nn.Module):
         self.input_layer_size = num_states
 
 
-        layer_1_width = 258
-        layer_2_width = 128
-        layer_3_width = 64
+        layer_1_width = 64
+        layer_2_width = 64
+        layer_3_width = 32
 
         # Layers
         self.fc1 = nn.Linear(self.input_layer_size, layer_1_width, bias=True)

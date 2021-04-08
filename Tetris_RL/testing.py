@@ -2,7 +2,7 @@ import gameboardClass
 import agentClass
 import numpy as np
 from functools import reduce
-
+"""
 N_row = 8
 N_col = 8
 tile_size = 4
@@ -25,12 +25,11 @@ agent = agentClass.TDQNAgent(alpha, epsilon, epsilon_scale, replay_buffer_size, 
 gameboard=gameboardClass.TGameBoard(N_row,N_col,tile_size,max_tile_count,agent,stochastic_prob)
 
 #agent.fn_init(gameboard)
-gameboard.fn_new_tile()
+gameboard.cur_tile_type = 0
 gameboard.fn_drop()
-gameboard.fn_new_tile()
+gameboard.cur_tile_type = 0
 gameboard.fn_drop()
-gameboard.fn_new_tile()
-gameboard.fn_move(0,0)
+gameboard.cur_tile_type = 0
 #gameboard.fn_new_tile()
 #gameboard.fn_drop()
 curtile = gameboard.tiles[gameboard.cur_tile_type][gameboard.tile_orientation]
@@ -47,3 +46,11 @@ for xLoop in range(len(curtile)):
 print(state)
 print(gameboard.tile_y)
 #pygame.draw.rect(screen,COLOR_RED,[101+20*((xLoop+gameboard.tile_x)%gameboard.N_col),81+20*(gameboard.N_row-(yLoop+gameboard.tile_y)),18,18])
+"""
+
+a = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+b = np.array([1, 4, 7, 9])
+#a = [-np.inf for i in b if b in a]
+c = np.argmax(a)
+a[b] = -500
+print(a)

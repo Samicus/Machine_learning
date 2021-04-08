@@ -180,6 +180,7 @@ class TDQNAgent:
         self.time_step = 0
         self.update_count = 0
 
+
     def fn_init(self,gameboard):
         self.gameboard=gameboard
         self.n_row = self.gameboard.N_row
@@ -204,7 +205,21 @@ class TDQNAgent:
                 self.action_dir[idx] = [col, i]
                 idx += 1
 
-        
+        self.invalid_actions = self.get_valid_actions()
+
+    def get_valid_actions(self):
+        invalid_actions = {}
+        for j in range(4):
+            save_ind = []
+            for i in range(len(self.action_dir)):
+                self.gameboard.cur_tile_type = j
+                action = self.action_dir.get(i)
+                return_code = self.gameboard.fn_move(action[0], action[1])
+                if return_code == 1:
+                    save_ind.append(i)
+            invalid_actions[j] = np.array(save_ind)
+
+        return invalid_actions
 
 
     def fn_load_strategy(self,strategy_file):
@@ -246,13 +261,18 @@ class TDQNAgent:
         if sample > eps_threshold:
 
             q_online = calculate_q(self.model.offline_model, self.state, self.device)
-            self.action_idx = np.argmax(q_online)
+            q_online[0][self.invalid_actions.get(self.gameboard.cur_tile_type)] = -999999
+            self.action_idx = np.argmax(q_online[0])
             action = self.action_dir.get(self.action_idx)
             return_code = self.gameboard.fn_move(action[0], action[1])
         else:
             self.action_idx = random.randint(0, len(self.action_dir) -1)
             action = self.action_dir.get(self.action_idx)
             return_code = self.gameboard.fn_move(action[0], action[1])
+            while return_code == 1:
+                self.action_idx = random.randint(0, len(self.action_dir) - 1)
+                action = self.action_dir.get(self.action_idx)
+                return_code = self.gameboard.fn_move(action[0], action[1])
 
         return self.action_idx, return_code
 
