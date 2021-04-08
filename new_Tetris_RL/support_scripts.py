@@ -120,6 +120,13 @@ def calculate_loss(
 def plot_rewards(reward_tots):
     plt.figure()
     plt.plot(reward_tots)
+    plt.plot(range(len(reward_tots)), smooth(reward_tots, 20))
     plt.xlabel("Episodes")
     plt.ylabel("Reward")
     plt.show()
+
+def smooth(y, box_pts):
+    box = np.ones(box_pts)/box_pts
+    y_smooth = np.convolve(y, box, mode='same')
+    return y_smooth
+

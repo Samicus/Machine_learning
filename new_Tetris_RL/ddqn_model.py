@@ -13,16 +13,16 @@ class DeepQNetwork(nn.Module):
         self.input_layer_size = num_states
 
 
-        layer_1_width = 64
-        layer_2_width = 64
+        layer_1_width = 258
+        layer_2_width = 128
         layer_3_width = 64
 
         # Layers
-        self.fc1 = nn.Linear(self.input_layer_size, layer_1_width)
+        self.fc1 = nn.Linear(self.input_layer_size, layer_1_width, bias=True)
         self.relu1 = nn.ReLU(inplace=True)
-        self.fc2 = nn.Linear(layer_1_width, layer_2_width)
+        self.fc2 = nn.Linear(layer_1_width, layer_2_width, bias=True)
         self.relu2 = nn.ReLU(inplace=True)
-        self.fc3 = nn.Linear(layer_2_width, layer_3_width)
+        self.fc3 = nn.Linear(layer_2_width, layer_3_width, bias=True)
         self.relu3 = nn.ReLU(inplace=True)
         self.fc_out = nn.Linear(layer_3_width, self.output_size)
 
@@ -41,8 +41,8 @@ class DeepQNetwork(nn.Module):
         h = self.relu1(h)
 
         # Layer 2
-        #h = self.fc2(h)
-        #h = self.relu2(h)
+        h = self.fc2(h)
+        h = self.relu2(h)
 
         # Layer 3
         h = self.fc3(h)
@@ -68,12 +68,7 @@ class DeepDoubleQNetwork(object):
         self.offline_model = DeepQNetwork(self.num_states, self.num_actions).to(
             device=self.device
         )
-        """
-        # Creating the two deep Q-networks
-        self.online_model = DeepQNetwork(self.num_states, self.num_actions)
-        
-        self.offline_model = DeepQNetwork(self.num_states, self.num_actions)
-        """
+
         # Define optimizer
         self.optimizer = torch.optim.Adam(self.online_model.parameters(), self.lr)
 

@@ -118,11 +118,11 @@ elif param_set==PARAM_TASK2a:
     N_col=4
     tile_size=2
     max_tile_count=50
-    stochastic_prob=1
+    stochastic_prob=0
 
     alpha=0.001
     epsilon=0.001
-    episode_count=100000
+    episode_count=10000
 
     epsilon_scale=5000
     replay_buffer_size=10000

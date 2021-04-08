@@ -194,7 +194,7 @@ class TDQNAgent:
         self.nr_actions = self.n_col*4
 
         self.replay_buffer = ExperienceReplay(device=self.device, num_states=nr_states)
-        self.model = DeepDoubleQNetwork(self.device, nr_states,self.nr_actions, lr=0.003)
+        self.model = DeepDoubleQNetwork(self.device, nr_states,self.nr_actions, lr=0.001)
 
         idx = 0
         self.action_dir = {}
@@ -205,9 +205,7 @@ class TDQNAgent:
                 idx += 1
 
         
-        self.eps = 0.9
-        self.eps_decay = 0.0001
-        self.eps_end = 0.1
+
 
     def fn_load_strategy(self,strategy_file):
         pass
@@ -241,31 +239,11 @@ class TDQNAgent:
         self.state = self.state[None, :]
         self.state = torch.Tensor(self.state).to(self.device)
 
-
     def fn_select_action(self):
         sample = random.random()
-        """
-        if sample > self.eps_threshold:
 
-            q_online = calculate_q(self.model.offline_model, self.state, self.device)
-            self.action_idx = np.argmax(q_online)
-            action = self.action_dir.get(self.action_idx)
-            return_code = self.gameboard.fn_move(action[0], action[1])
-            while return_code == 1:
-                self.action_idx = random.randint(0,len(self.action_dir)-1)
-                action = self.action_dir.get(self.action_idx)
-                return_code = self.gameboard.fn_move(action[0], action[1])
-        else:
-            return_code = 1
-            while return_code == 1:
-
-                self.action_idx = random.randint(0, len(self.action_dir) -1)
-                action = self.action_dir.get(self.action_idx)
-                return_code = self.gameboard.fn_move(action[0], action[1])
-        return self.action_idx
-            #torch.tensor([[random.randrange(self.nr_actions)]], device=self.device, dtype=torch.long)
-        """
-        if sample > self.eps:
+        eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)
+        if sample > eps_threshold:
 
             q_online = calculate_q(self.model.offline_model, self.state, self.device)
             self.action_idx = np.argmax(q_online)
@@ -275,10 +253,19 @@ class TDQNAgent:
             self.action_idx = random.randint(0, len(self.action_dir) -1)
             action = self.action_dir.get(self.action_idx)
             return_code = self.gameboard.fn_move(action[0], action[1])
+
         return self.action_idx, return_code
 
     def fn_reinforce(self):
-        pass
+
+
+        loss = sample_batch_and_calculate_loss(
+            self.model, self.replay_buffer, self.batch_size, self.gamma, self.device
+        )
+        self.model.optimizer.zero_grad()
+        loss.backward()
+        self.model.optimizer.step()
+
 
 
     def fn_turn(self):
@@ -296,6 +283,9 @@ class TDQNAgent:
                 plot_rewards(self.reward_tots)
                 raise SystemExit(0)
             else:
+
+                if self.update_count % self.sync_target_episode_count == 0:
+                    self.model.update_target_network()
                 self.gameboard.fn_restart()
         else:
 
@@ -310,27 +300,15 @@ class TDQNAgent:
             next_state =  self.state
 
             self.reward_tots[self.episode] += reward
-            if return_code == 1:
-                reward = -30 
+
 
             self.replay_buffer.add(self.Transition(old_state, action, reward, next_state))
 
 
 
-            if self.replay_buffer.buffer_length > 1000: # self.replay_buffer_size:
-                loss = sample_batch_and_calculate_loss(
-                    self.model, self.replay_buffer, self.batch_size, self.gamma, self.device
-                )
-                self.model.optimizer.zero_grad()
-                loss.backward()
-                self.model.optimizer.step()
+            if self.replay_buffer.buffer_length >  self.replay_buffer_size:
+                self.fn_reinforce()
                 self.update_count += 1
-
-                if self.update_count % self.sync_target_episode_count == 0:
-                    self.model.update_target_network()
-                    self.eps = max(self.eps - self.eps_decay, self.eps_end)
-                #self.fn_reinforce()
-
 
 class THumanAgent:
     def fn_init(self,gameboard):
