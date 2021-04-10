@@ -27,10 +27,10 @@ class DeepQNetwork(nn.Module):
         self.fc_out = nn.Linear(layer_3_width, self.output_size)
 
         # Initialize bias parameters
-        nn.init.zeros_(self.fc1.bias)
-        nn.init.zeros_(self.fc2.bias)
-        nn.init.zeros_(self.fc3.bias)
-        nn.init.zeros_(self.fc_out.bias)
+        #nn.init.zeros_(self.fc1.bias)
+        #nn.init.zeros_(self.fc2.bias)
+        #nn.init.zeros_(self.fc3.bias)
+        #nn.init.zeros_(self.fc_out.bias)
 
         # Initialize final layer uniformly
         nn.init.uniform_(self.fc_out.weight, a=-1e-6, b=1e-6)

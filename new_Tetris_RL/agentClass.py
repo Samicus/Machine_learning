@@ -199,7 +199,7 @@ class TDQNAgent:
         self.nr_actions = self.n_col*4
 
         self.replay_buffer = ExperienceReplay(device=self.device, num_states=nr_states)
-        self.model = DeepDoubleQNetwork(self.device, nr_states,self.nr_actions, lr=0.007)
+        self.model = DeepDoubleQNetwork(self.device, nr_states,self.nr_actions, lr=0.009)
 
         idx = 0
         self.action_dir = {}
