@@ -15,7 +15,7 @@ class DeepQNetwork(nn.Module):
 
         layer_1_width = 64
         layer_2_width = 64
-        layer_3_width = 32
+        layer_3_width = 64
 
         # Layers
         self.fc1 = nn.Linear(self.input_layer_size, layer_1_width, bias=True)
@@ -41,8 +41,8 @@ class DeepQNetwork(nn.Module):
         h = self.relu1(h)
 
         # Layer 2
-        h = self.fc2(h)
-        h = self.relu2(h)
+        #h = self.fc2(h)
+        #h = self.relu2(h)
 
         # Layer 3
         h = self.fc3(h)

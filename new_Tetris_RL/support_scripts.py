@@ -120,7 +120,7 @@ def calculate_loss(
 def plot_rewards(reward_tots):
     plt.figure()
     plt.plot(reward_tots)
-    plt.plot(range(len(reward_tots)), smooth(reward_tots, 20))
+    plt.plot(range(len(reward_tots)), smooth(reward_tots, 40))
     plt.xlabel("Episodes")
     plt.ylabel("Reward")
     plt.show()

@@ -118,7 +118,7 @@ elif param_set==PARAM_TASK2a:
     N_col=4
     tile_size=2
     max_tile_count=50
-    stochastic_prob=0
+    stochastic_prob=1
 
     alpha=0.001
     epsilon=0.001
@@ -290,7 +290,7 @@ elif show_game:
 
             pygame.display.flip()
             clock.tick(framerate)
-            if agent.episode == 900:
+            if agent.episode == 9000:
                 framerate = 1
 else:
     while True:

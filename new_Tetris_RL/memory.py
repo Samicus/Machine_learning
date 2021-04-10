@@ -18,7 +18,7 @@ class ExperienceReplay:
 
     def add(self, transition):
         """
-        Adds a transition <s, a, r, s', t > to the replay buffer
+        Adds a transition <s, a, r, s', term_state > to the replay buffer
         """
         self.buffer.append(transition)
 
@@ -49,7 +49,7 @@ class ExperienceReplay:
             state_batch[i, :] = self.buffer[index].s
             action_batch[i] = self.buffer[index].a
             reward_batch[i] = self.buffer[index].r
-            nonterminal_batch[i] = self.buffer[index].t
+            nonterminal_batch[i] = self.buffer[index].term_state
             next_state_batch[i, :] = self.buffer[index].next_s
 
         return (
@@ -88,7 +88,7 @@ class ExperienceReplay:
             action_batch[i] = self.buffer[index].a
             reward_batch[i] = self.buffer[index].r
             next_state_batch[i, :] = self.buffer[index].next_s
-
+            nonterminal_batch[i] = self.buffer[index].term_state
         return (
             torch.tensor(state_batch, dtype=torch.float, device=self.device),
             torch.tensor(action_batch, dtype=torch.long, device=self.device),
