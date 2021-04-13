@@ -199,7 +199,7 @@ class TDQNAgent:
         self.nr_actions = self.n_col*4
 
         self.replay_buffer = ExperienceReplay(device=self.device, num_states=nr_states)
-        self.model = DeepDoubleQNetwork(self.device, nr_states,self.nr_actions, lr=0.009)
+        self.model = DeepDoubleQNetwork(self.device, nr_states,self.nr_actions, lr=0.003)
 
         idx = 0
         self.action_dir = {}
@@ -228,28 +228,9 @@ class TDQNAgent:
 
     def fn_load_strategy(self,strategy_file):
         pass
-        # TO BE COMPLETED BY STUDENT
-        # Here you can load the Q-network (to Q-network of self) from the strategy_file
 
     def fn_read_state(self):
-        """
-        curtile = self.gameboard.tiles[self.gameboard.cur_tile_type][self.gameboard.tile_orientation]
 
-        n_row = self.gameboard.N_row
-        n_col = self.gameboard.N_col
-        tile_size = self.gameboard.tile_size
-        state = np.zeros((n_row + tile_size, n_col))
-        state[:n_row, :] = self.gameboard.board
-        state[n_row:, :] = -1
-        for xLoop in range(len(curtile)):
-            #state[self.gameboard.tile_y + curtile[xLoop][0]:self.gameboard.tile_y + curtile[xLoop][1],
-            state[self.gameboard.tile_y + curtile[xLoop][0]:self.gameboard.tile_y + curtile[xLoop][1],
-
-            (xLoop + self.gameboard.tile_x) % self.gameboard.N_col] = 1
-        self.state = np.zeros((1,n_row+tile_size, n_col))
-        self.state[0, :, :] = state
-        self.state = torch.Tensor(self.state).to(self.device)
-        """
         self.state = np.zeros(self.n_row*self.n_col + 4)
         current_tile = self.gameboard.cur_tile_type # int 0 - 3
         self.state[:4] = [-1, -1, -1, -1]
@@ -259,6 +240,7 @@ class TDQNAgent:
         self.state = torch.Tensor(self.state).to(self.device)
 
     def fn_select_action(self):
+        """
         sample = random.random()
 
         eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)
@@ -278,7 +260,23 @@ class TDQNAgent:
                 action = self.action_dir.get(self.action_idx)
                 return_code = self.gameboard.fn_move(action[0], action[1])
         return self.action_idx
+        """
+        sample = random.random()
 
+        eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)
+        if sample > eps_threshold:
+
+            q_online = calculate_q(self.model.online_model, self.state, self.device)
+            #q_online[0][self.invalid_actions.get(self.gameboard.cur_tile_type)] = -np.inf
+            self.action_idx = np.argmax(q_online[0])
+            action = self.action_dir.get(self.action_idx)
+            return_code = self.gameboard.fn_move(action[0], action[1])
+        else:
+            self.action_idx = random.randint(0, len(self.action_dir) - 1)
+            action = self.action_dir.get(self.action_idx)
+            return_code = self.gameboard.fn_move(action[0], action[1])
+
+        return self.action_idx
     def fn_reinforce(self):
 
         loss = sample_batch_and_calculate_loss(
@@ -303,7 +301,7 @@ class TDQNAgent:
                     # Here you can save the rewards and the Q-network to data files
             if self.episode>=self.episode_count:
                 data = asarray(self.reward_tots)
-                savetxt('data.csv', data, delimiter=',')
+                savetxt('online_network.csv', data, delimiter=',')
                 plot_rewards(self.reward_tots)
                 raise SystemExit(0)
             else:

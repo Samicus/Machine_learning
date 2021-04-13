@@ -75,7 +75,7 @@ def sample_batch_and_calculate_loss(agent, replay_buffer, batch_size, gamma, dev
     q_online_next = agent.online_model.forward(next_state)
 
     with torch.no_grad():
-        q_offline_next = agent.online_model.forward(next_state)
+        q_offline_next = agent.offline_model.forward(next_state)
 
     # Calculate Q targets
     q_target = calculate_q_targets(
@@ -100,7 +100,7 @@ def calculate_loss(
     q_online_next = agent.online_model.forward(next_state)
 
     with torch.no_grad():
-        q_offline_next = agent.online_model.forward(next_state)
+        q_offline_next = agent.offline_model.forward(next_state)
 
     # Calculate Q targets
     q_target = calculate_q_targets(
@@ -120,7 +120,7 @@ def calculate_loss(
 def plot_rewards(reward_tots):
     plt.figure()
     plt.plot(reward_tots)
-    plt.plot(range(len(reward_tots)), smooth(reward_tots, 40))
+    plt.plot(range(len(reward_tots)), smooth(reward_tots, 20))
     plt.xlabel("Episodes")
     plt.ylabel("Reward")
     plt.show()

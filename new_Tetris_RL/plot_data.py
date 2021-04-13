@@ -8,7 +8,7 @@ def smooth(y, box_pts):
     return y_smooth
 
 
-data = loadtxt('data.csv', delimiter=',')
+data = loadtxt('offline_network.csv', delimiter=',')
 
 plt.figure()
 plt.plot(data)
