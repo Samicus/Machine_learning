@@ -1,35 +1,22 @@
 import numpy as np
 import random
-import math
-import h5py
-from functools import reduce
-import random
-
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-
 from collections import namedtuple
 from ddqn_model import DeepDoubleQNetwork
 from memory import ExperienceReplay
 from support_scripts import calculate_q
-from support_scripts import calculate_q_targets
 from support_scripts import sample_batch_and_calculate_loss
-from support_scripts import calculate_loss
 from support_scripts import plot_rewards
-
+from support_scripts import binatodeci
 
 
 from numpy import asarray
 from numpy import savetxt
 
-"""
-from Deep_Q_Network import DQN
-from replay_memory import ReplayMemory
-from support_scripts import plot_rewards
-from support_scripts import binatodeci
-"""
+
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
+
 
 class TQAgent:
     # Agent for learning to play tetris using Q-learning
@@ -52,7 +39,6 @@ class TQAgent:
         nr_actions = 16
 
         self.state = np.zeros((self.gameboard.N_row * self.gameboard.N_col + len(self.gameboard.tiles)))
-        #self.q_table = np.random.uniform(low=0, high=0.2, size=(nr_states, nr_actions))
         self.q_table = np.zeros((nr_states, nr_actions))
 
         # Every combination of placement & rotations
@@ -78,6 +64,7 @@ class TQAgent:
     def fn_load_strategy(self,strategy_file):
         #self.q_table = strategy_file
         pass
+
     def fn_read_state(self):
         """
         first 4 elements denotes which tile is currently used, The remaining
@@ -114,8 +101,6 @@ class TQAgent:
 
             return_code = self.gameboard.fn_move(self.action[0], self.action[1])
 
-
-
     def fn_reinforce(self,old_state,reward):
 
         binary_rep_oldstate = np.where(old_state == -1, 0, old_state)
@@ -128,17 +113,14 @@ class TQAgent:
 
     def fn_turn(self):
         if self.gameboard.gameover:
-            print(self.episode)
             self.episode+=1
             if self.episode%100==0:
                 print('episode '+str(self.episode)+'/'+str(self.episode_count)+' (reward: ',str(np.sum(self.reward_tots[range(self.episode-100,self.episode)])),')')
             if self.episode%1000==0:
                 saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
                 if self.episode == self.episode_count:
-
                     plot_rewards(self.reward_tots)
-                    # TO BE COMPLETED BY STUDENT
-                    # Here you can save the rewards and the Q-table to data files for plotting of the rewards and the Q-table can be used to test how the agent plays
+
             if self.episode>=self.episode_count:
                 raise SystemExit(0)
             else:
@@ -146,21 +128,10 @@ class TQAgent:
         else:
 
             old_state = np.copy(self.state)
-            # Select and execute action (move the tile to the desired column and orientation)
             self.fn_select_action()
-            # TO BE COMPLETED BY STUDENT
-            # Here you should write line(s) to copy the old state into the variable 'old_state' which is later passed to fn_reinforce()
-
-            # Drop the tile on the game board
             reward=self.gameboard.fn_drop()
-
-            # Here you should write line(s) to add the current reward to the total reward for the current episode, so you can save it to disk later
             self.reward_tots[self.episode] += reward
-
-            # Read the new state
             self.fn_read_state()
-
-            # Update the Q-table using the old state and the reward (the new state and the taken action should be stored as attributes in self)
             self.fn_reinforce(old_state, reward)
 
 
@@ -240,34 +211,13 @@ class TDQNAgent:
         self.state = torch.Tensor(self.state).to(self.device)
 
     def fn_select_action(self):
-        """
-        sample = random.random()
 
-        eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)
-        if sample > eps_threshold:
-
-            q_online = calculate_q(self.model.offline_model, self.state, self.device)
-            q_online[0][self.invalid_actions.get(self.gameboard.cur_tile_type)] = -np.inf
-            self.action_idx = np.argmax(q_online[0])
-            action = self.action_dir.get(self.action_idx)
-            return_code = self.gameboard.fn_move(action[0], action[1])
-        else:
-            self.action_idx = random.randint(0, len(self.action_dir) -1)
-            action = self.action_dir.get(self.action_idx)
-            return_code = self.gameboard.fn_move(action[0], action[1])
-            while return_code == 1:
-                self.action_idx = random.randint(0, len(self.action_dir) - 1)
-                action = self.action_dir.get(self.action_idx)
-                return_code = self.gameboard.fn_move(action[0], action[1])
-        return self.action_idx
-        """
         sample = random.random()
 
         eps_threshold = max(self.epsilon, 1 - self.episode / self.epsilon_scale)
         if sample > eps_threshold:
 
             q_online = calculate_q(self.model.online_model, self.state, self.device)
-            #q_online[0][self.invalid_actions.get(self.gameboard.cur_tile_type)] = -np.inf
             self.action_idx = np.argmax(q_online[0])
             action = self.action_dir.get(self.action_idx)
             return_code = self.gameboard.fn_move(action[0], action[1])
@@ -277,6 +227,7 @@ class TDQNAgent:
             return_code = self.gameboard.fn_move(action[0], action[1])
 
         return self.action_idx
+
     def fn_reinforce(self):
 
         loss = sample_batch_and_calculate_loss(
@@ -285,8 +236,6 @@ class TDQNAgent:
         self.model.optimizer.zero_grad()
         loss.backward()
         self.model.optimizer.step()
-
-
 
     def fn_turn(self):
         if self.gameboard.gameover:
@@ -297,20 +246,14 @@ class TDQNAgent:
                 saveEpisodes=[1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
                 if self.episode in saveEpisodes:
                     pass
-                    # TO BE COMPLETED BY STUDENT
-                    # Here you can save the rewards and the Q-network to data files
             if self.episode>=self.episode_count:
                 data = asarray(self.reward_tots)
-                savetxt('online_network.csv', data, delimiter=',')
+                savetxt('data.csv', data, delimiter=',')
                 plot_rewards(self.reward_tots)
                 raise SystemExit(0)
             else:
-
                 self.gameboard.fn_restart()
-                
         else:
-
-
             action = self.fn_select_action()
             action = torch.tensor([[action]], device=self.device)
             old_state = np.copy(self.state)
@@ -329,7 +272,7 @@ class TDQNAgent:
 
 
             self.replay_buffer.add(self.Transition(old_state, action, reward, next_state, non_terminal_state))
-            if self.replay_buffer.buffer_length >  self.replay_buffer_size:
+            if self.replay_buffer.buffer_length > self.replay_buffer_size:
                 if self.update_count % self.sync_target_episode_count == 0:
                     self.model.update_target_network()
                 self.fn_reinforce()

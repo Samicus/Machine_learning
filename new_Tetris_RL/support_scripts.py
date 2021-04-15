@@ -118,15 +118,25 @@ def calculate_loss(
     return loss
 
 def plot_rewards(reward_tots):
+    print("a")
     plt.figure()
+    print("b")
     plt.plot(reward_tots)
+    print("c")
     plt.plot(range(len(reward_tots)), smooth(reward_tots, 20))
+    print("d")
     plt.xlabel("Episodes")
+    print("e")
     plt.ylabel("Reward")
+    print("f")
     plt.show()
-
+    print("g")
 def smooth(y, box_pts):
     box = np.ones(box_pts)/box_pts
     y_smooth = np.convolve(y, box, mode='same')
     return y_smooth
+
+def binatodeci(binary):
+    deci = sum(val*(2**idx) for idx, val in enumerate(reversed(binary)))
+    return int(deci)
 
