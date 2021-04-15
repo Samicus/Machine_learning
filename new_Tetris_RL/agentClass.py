@@ -265,13 +265,11 @@ class TDQNAgent:
             if self.gameboard.gameover:
                 non_terminal_state = False
             else:
-
                 non_terminal_state = True
 
             self.reward_tots[self.episode] += reward
-
-
             self.replay_buffer.add(self.Transition(old_state, action, reward, next_state, non_terminal_state))
+
             if self.replay_buffer.buffer_length > self.replay_buffer_size:
                 if self.update_count % self.sync_target_episode_count == 0:
                     self.model.update_target_network()
