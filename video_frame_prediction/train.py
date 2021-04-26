@@ -1,20 +1,27 @@
 import deeptrack as dt
 import numpy as np
-import numpy as np
+
 import pandas as pd
 import os, datetime
 import tensorflow as tf
 from tensorflow.keras.models import *
 from tensorflow.keras.layers import *
-from time_2_vec import Time2Vector
-from transformer_encoder import TransformerEncoder
-from single_attention import SingleAttention
-from multi_attention import MultiAttention
+from classes import AutoEncoder
+from classes import Time2Vector
+from classes import TransformerEncoder
+from classes import SingleAttention
+from classes import MultiAttention
 import matplotlib.pyplot as plt
-plt.style.use('seaborn')
 
+
+from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.model_selection import train_test_split
+from tensorflow.keras import layers, losses
+from tensorflow.keras.datasets import fashion_mnist
+from tensorflow.keras.models import Model
 import warnings
 warnings.filterwarnings('ignore')
+plt.style.use('seaborn')
 
 IMAGE_SIZE=64
 sequence_length=10 #Number of frames per sequence
@@ -52,6 +59,26 @@ def get_position(previous_value,vel):
             vel[i]=-vel[i]
     return newv
 
+
+particle=dt.Sequential(particle,position=get_position)
+
+#Defining properties of the microscope
+optics=dt.Fluorescence(NA=1,output_region= (0, 0,IMAGE_SIZE, IMAGE_SIZE),
+    magnification=10,
+    resolution=(1e-6, 1e-6),
+    wavelength=633e-9)
+
+#Combining everything into a dataset.
+#Note that the sequences are flipped in different directions, so that each unique sequence defines
+#in fact 8 sequences flipped in different directions, to speed up data generation
+dataset=dt.FlipUD(dt.FlipDiagonal(dt.FlipLR(dt.Sequence(optics(particle**(lambda: 1+np.random.randint(MAX_PARTICLES))),sequence_length=sequence_length))))
+
+
+dataset.update().plot(cmap="gray") #This generates a new sequence and plots it
+video=dataset.update().resolve() #This generates a new sequence and stores in in "video"
+
+autoencoder = AutoEncoder()
+"""
 ''' ##################################--MODEL--##################################'''
 
 def create_model():
@@ -99,21 +126,5 @@ model = tf.keras.models.load_model('/content/Transformer+TimeEmbedding.hdf5',
                                                    'TransformerEncoder': TransformerEncoder})
 
 ''' #############################################################################'''
-
+"""
 ''' ##################################--DATA--##################################'''
-particle=dt.Sequential(particle,position=get_position)
-
-#Defining properties of the microscope
-optics=dt.Fluorescence(NA=1,output_region= (0, 0,IMAGE_SIZE, IMAGE_SIZE),
-    magnification=10,
-    resolution=(1e-6, 1e-6),
-    wavelength=633e-9)
-
-#Combining everything into a dataset.
-#Note that the sequences are flipped in different directions, so that each unique sequence defines
-#in fact 8 sequences flipped in different directions, to speed up data generation
-dataset=dt.FlipUD(dt.FlipDiagonal(dt.FlipLR(dt.Sequence(optics(particle**(lambda: 1+np.random.randint(MAX_PARTICLES))),sequence_length=sequence_length))))
-
-
-dataset.update().plot(cmap="gray") #This generates a new sequence and plots it
-video=dataset.update().resolve() #This generates a new sequence and stores in in "video"
